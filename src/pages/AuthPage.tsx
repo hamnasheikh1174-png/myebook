@@ -2,12 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, ArrowRight, Book, CheckCircle2 } from 'lucide-react';
+import { store } from '../lib/store';
 
-interface AuthPageProps {
-  onLogin: (token: string, userId: number) => void;
-}
-
-export function AuthPage({ onLogin }: AuthPageProps) {
+export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,22 +17,22 @@ export function AuthPage({ onLogin }: AuthPageProps) {
     setLoading(true);
     setError('');
 
-    const endpoint = isLogin ? '/api/login' : '/api/signup';
     try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        onLogin(data.token, data.userId);
-        navigate('/dashboard');
+      if (isLogin) {
+        const { error } = await store.auth.signInWithPassword({
+          email,
+        });
+        if (error) throw error;
       } else {
-        setError(data.error);
+        const { error } = await store.auth.signUp({
+          email,
+        });
+        if (error) throw error;
       }
-    } catch (err) {
-      setError('Connection failed. Please try again.');
+      window.dispatchEvent(new Event('auth-change'));
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }

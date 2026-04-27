@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, ChevronRight, Bookmark, Filter } from 'lucide-react';
 import { Novel } from '../types';
+import { store } from '../lib/store';
 
 export function NovelsPage() {
   const [novels, setNovels] = useState<Novel[]>([]);
@@ -11,12 +12,15 @@ export function NovelsPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
-    fetch('/api/novels')
-      .then(res => res.json())
-      .then(data => {
+    async function fetchNovels() {
+      const { data, error } = await store.novels.getAll();
+      
+      if (!error && data) {
         setNovels(data);
-        setLoading(false);
-      });
+      }
+      setLoading(false);
+    }
+    fetchNovels();
   }, []);
 
   const categories = ['All', ...new Set(novels.map(n => n.category))];
@@ -96,9 +100,9 @@ export function NovelsPage() {
                   className="group"
                 >
                   <Link to={`/novel/${novel.id}`} className="block relative aspect-[3/4] overflow-hidden rounded-2xl bg-gray-100 shadow-xl group-hover:shadow-2xl transition-all duration-500 ring-1 ring-black/5 hover:ring-[#B58E72]/30">
-                    {novel.imageUrl ? (
+                    {novel.image_url ? (
                       <img 
-                        src={novel.imageUrl} 
+                        src={novel.image_url} 
                         alt={novel.title} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                         loading="lazy"

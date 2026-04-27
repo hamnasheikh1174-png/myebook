@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ShoppingCart, Share2, Heart, ArrowLeft, ShieldCheck, Truck, RotateCcw, Trash2 } from 'lucide-react';
 import { Novel, User } from '../types';
+import { store } from '../lib/store';
 
 interface NovelDetailPageProps {
-  user: User | null;
+  user: any;
 }
 
 export function NovelDetailPage({ user }: NovelDetailPageProps) {
@@ -15,30 +16,28 @@ export function NovelDetailPage({ user }: NovelDetailPageProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/novels/${id}`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
+    async function fetchNovel() {
+      if (!id) return;
+      const { data, error } = await store.novels.getById(id);
+      
+      if (!error && data) {
         setNovel(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+      setLoading(false);
+    }
+    fetchNovel();
   }, [id]);
 
   const handleDelete = async () => {
     if (!novel || !confirm('Warning: This will permanently purge this edition from our records. Proceed?')) return;
     
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/novels/${novel.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const { error } = await store.novels.delete(novel.id);
 
-      if (res.ok) {
+      if (!error) {
         navigate('/dashboard');
       } else {
-        const errorData = await res.json();
-        alert(errorData.error || 'The archive could not be modified. Please verify your permissions.');
+        alert(error.message || 'The archive could not be modified. Please verify your permissions.');
       }
     } catch (err) {
       alert('Network transmission failed. Please try again.');
@@ -73,8 +72,8 @@ export function NovelDetailPage({ user }: NovelDetailPageProps) {
             className="relative"
           >
             <div className="aspect-[3/4] rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-black/5 bg-gray-100">
-               {novel.imageUrl ? (
-                 <img src={novel.imageUrl} className="w-full h-full object-cover" alt={novel.title} loading="lazy" />
+               {novel.image_url ? (
+                 <img src={novel.image_url} className="w-full h-full object-cover" alt={novel.title} loading="lazy" referrerPolicy="no-referrer" />
                ) : (
                  <div className="w-full h-full flex items-center justify-center text-[#B58E72]/20 font-serif text-3xl italic p-20 text-center">
                    {novel.title}
@@ -101,7 +100,7 @@ export function NovelDetailPage({ user }: NovelDetailPageProps) {
             <h1 className="text-6xl md:text-7xl font-serif font-black text-[#2D241E] leading-tight mb-4">{novel.title}</h1>
             <p className="text-2xl font-serif italic text-[#B58E72] mb-10">By {novel.author}</p>
             
-            {user && Number(user.id) === Number(novel.userId) && (
+            {user && user.id === novel.user_id && (
               <div className="mb-8">
                 <button 
                   onClick={handleDelete}

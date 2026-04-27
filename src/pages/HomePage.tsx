@@ -3,18 +3,22 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, ChevronRight, Bookmark } from 'lucide-react';
 import { Novel } from '../types';
+import { store } from '../lib/store';
 
 export function HomePage() {
   const [novels, setNovels] = useState<Novel[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/novels')
-      .then(res => res.json())
-      .then(data => {
-        setNovels(data);
-        setLoading(false);
-      });
+    async function fetchNovels() {
+      const { data, error } = await store.novels.getAll();
+      
+      if (!error && data) {
+        setNovels(data.slice(0, 8));
+      }
+      setLoading(false);
+    }
+    fetchNovels();
   }, []);
 
   return (
@@ -98,13 +102,13 @@ export function HomePage() {
                   className="group"
                 >
                   <Link to={`/novel/${novel.id}`} className="block relative aspect-[3/4] overflow-hidden rounded-2xl bg-gray-100 shadow-2xl shadow-black/5 ring-1 ring-black/5 group-hover:ring-[#B58E72]/50 transition-all">
-                    {novel.imageUrl ? (
+                    {novel.image_url ? (
                       <img 
-                        src={novel.imageUrl} 
+                        src={novel.image_url} 
                         alt={novel.title} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        referrerPolicy="no-referrer"
                         loading="lazy"
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-[#FDFCFB] to-[#F2EFE9]">

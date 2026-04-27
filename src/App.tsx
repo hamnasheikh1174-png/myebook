@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Layout } from './components/Layout';
 import { Book } from 'lucide-react';
 import { User } from './types';
+import { store } from './lib/store';
 
 // Lazy load pages for better bundle performance
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -26,41 +27,36 @@ const PageLoader = () => (
 );
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetch('/api/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data) setUser(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        localStorage.removeItem('token');
-        setLoading(false);
-      });
-    } else {
+    // Check active sessions and sets the user
+    store.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
       setLoading(false);
-    }
+    });
+
+    // In simple store, we handle re-renders via explicit state updates or simpler means
+    // For this migration, we'll just poll or rely on storage events if needed, 
+    // but simpler to just wrap navigate/auth calls.
+    const handleStorageChange = () => {
+      store.auth.getUser().then(({ data: { user } }) => setUser(user));
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Custom event for same-window updates
+    window.addEventListener('auth-change', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-change', handleStorageChange);
+    };
   }, []);
 
-  const handleLogin = (token: string, userId: number) => {
-    localStorage.setItem('token', token);
-    fetch('/api/me', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => res.json())
-    .then(data => setUser(data));
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
+  const handleLogout = async () => {
+    await store.auth.signOut();
+    window.dispatchEvent(new Event('auth-change'));
   };
 
   if (loading) return (
@@ -88,7 +84,7 @@ export default function App() {
             <Route path="/novel/:id" element={<NovelDetailPage user={user} />} />
             <Route 
               path="/auth" 
-              element={!user ? <AuthPage onLogin={handleLogin} /> : <Navigate to="/dashboard" />} 
+              element={!user ? <AuthPage /> : <Navigate to="/dashboard" />} 
             />
             <Route 
               path="/dashboard" 
